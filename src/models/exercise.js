@@ -14,6 +14,7 @@ const isValidDate = (dateString) => {
 const addExercise = (userId, description, duration, date) => {
   return new Promise((resolve, reject) => {
     const parsedDuration = parseInt(duration, 10);
+
     if (isNaN(parsedDuration) || parsedDuration <= 0) {
       return reject(new Error("Duration must be a positive integer"));
     }
@@ -29,6 +30,7 @@ const addExercise = (userId, description, duration, date) => {
       [userId, description, parsedDuration, exerciseDate],
       function (err) {
         if (err) return reject(err);
+
         resolve({
           userId,
           exerciseId: this.lastID,
@@ -44,33 +46,52 @@ const addExercise = (userId, description, duration, date) => {
 const getUserExercises = (userId, from, to, limit) => {
   return new Promise((resolve, reject) => {
     let query = `SELECT id, description, duration, date FROM exercises WHERE user_id = ?`;
+    const countQuery = `SELECT COUNT(*) AS total FROM exercises WHERE user_id = ?`;
+
     const params = [userId];
+    const countParams = [userId];
 
-    db.all(query, params, (err, rows) => {
-      if (err) {
-        return reject(err);
-      }
+    if (from) {
+      query += ` AND date >= ?`;
+      params.push(from);
+    }
 
-      let sortedExercises = rows.sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
-      );
+    if (to) {
+      query += ` AND date <= ?`;
+      params.push(to);
+    }
 
-      if (from) {
-        sortedExercises = sortedExercises.filter((ex) => ex.date >= from);
-      }
+    if (to && from) {
+      query += ` ORDER BY date ASC`;
+    }
 
-      if (to) {
-        sortedExercises = sortedExercises.filter((ex) => ex.date <= to);
-      }
+    if (limit) {
+      query += ` LIMIT ?`;
+      params.push(parseInt(limit, 10));
+    }
 
-      const totalExercises = sortedExercises.length;
-
-      if (limit) {
-        sortedExercises = sortedExercises.slice(0, parseInt(limit));
-      }
-
-      resolve({ exercises: sortedExercises, count: totalExercises });
-    });
+    Promise.all([
+      new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(rows);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        db.get(countQuery, countParams, (err, row) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(row.total);
+        });
+      }),
+    ])
+      .then(([rows, count]) => {
+        resolve({ count, rows });
+      })
+      .catch(reject);
   });
 };
 

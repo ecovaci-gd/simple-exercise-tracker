@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { addExercise, getUserExercises } = require("../models/exercise");
+const {
+  addExercise,
+  getUserExercises,
+} = require("../models/exercise");
 const { getUserById } = require("../models/user");
 
 router.post("/:_id/exercises", async (req, res) => {
@@ -37,11 +40,12 @@ router.get("/:_id/logs", async (req, res) => {
     }
 
     const exercises = await getUserExercises(_id, from, to, limit);
+
     res.json({
       id: user.id,
       username: user.username,
-      count: exercises.length,
-      log: exercises,
+      count: exercises.count,
+      log: exercises.rows,
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
