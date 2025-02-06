@@ -1,14 +1,17 @@
 const db = require("../db");
+const { parseISO, isValid, format } = require("date-fns");
 
 const isValidDate = (dateString) => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateString.match(dateRegex)) {
-    return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return { isValid: false, error: "Invalid date format. Use YYYY-MM-DD" };
   }
 
-  const date = new Date(dateString);
+  const date = parseISO(dateString);
+  if (!isValid(date) || format(date, "yyyy-MM-dd") !== dateString) {
+    return { isValid: false, error: "Invalid date. Ensure the date exists" };
+  }
 
-  return !isNaN(date.getTime());
+  return { isValid: true };
 };
 
 const addExercise = (userId, description, duration, date) => {
@@ -21,8 +24,11 @@ const addExercise = (userId, description, duration, date) => {
 
     const exerciseDate = date ? date : new Date().toISOString().split("T")[0];
 
-    if (date && !isValidDate(date)) {
-      return reject(new Error("Invalid date format. Use YYYY-MM-DD"));
+    if (date) {
+      const { isValid, error } = isValidDate(date);
+      if (!isValid) {
+        return reject(new Error(error));
+      }
     }
 
     db.run(
@@ -46,19 +52,23 @@ const addExercise = (userId, description, duration, date) => {
 const getUserExercises = (userId, from, to, limit) => {
   return new Promise((resolve, reject) => {
     let query = `SELECT id, description, duration, date FROM exercises WHERE user_id = ?`;
-    const countQuery = `SELECT COUNT(*) AS total FROM exercises WHERE user_id = ?`;
+    let countQuery = `SELECT COUNT(*) AS total FROM exercises WHERE user_id = ?`;
 
     const params = [userId];
     const countParams = [userId];
 
     if (from) {
       query += ` AND date >= ?`;
+      countQuery += ` AND date >= ?`;
       params.push(from);
+      countParams.push(from);
     }
 
     if (to) {
       query += ` AND date <= ?`;
+      countQuery += ` AND date <= ?`;
       params.push(to);
+      countParams.push(to);
     }
 
     if (to && from) {
