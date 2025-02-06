@@ -1,9 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {
-  addExercise,
-  getUserExercises,
-} = require("../models/exercise");
+const { addExercise, getUserExercises } = require("../models/exercise");
 const { getUserById } = require("../models/user");
 
 router.post("/:_id/exercises", async (req, res) => {
